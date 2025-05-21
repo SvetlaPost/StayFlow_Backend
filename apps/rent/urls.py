@@ -1,18 +1,12 @@
-from django.urls import path
-from apps.rent.views import (
-    RentListAPIView,
-    RentCreateAPIView,
-    BulkCreateRentAPIView,
-    RentRetrieveUpdateDestroyView,
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from apps.rent.views import RentViewSet
 
-)
+router = DefaultRouter()
+router.register(r'rents', RentViewSet, basename='rent')
 
 urlpatterns = [
-    path('rents/', RentListAPIView.as_view(), name='rent-list'),
-    path('rents/create/', RentCreateAPIView.as_view(), name='rent-create'),
-    path('rents/bulk-create/', BulkCreateRentAPIView.as_view(), name='rent_bulk_create'),
-
-    path('rents/<int:pk>/', RentRetrieveUpdateDestroyView.as_view(), name='rent-detail'),
+    path('', include(router.urls)),
 ]
 
 
