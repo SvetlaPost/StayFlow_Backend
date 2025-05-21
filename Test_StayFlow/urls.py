@@ -23,6 +23,8 @@ from Test_StayFlow import swagger_urls
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('apps.rent.urls')),
+
+    path('api/users/', include('apps.users.urls')),
     path('', include(swagger_urls.urlpatterns)),
 
 ]
