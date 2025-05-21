@@ -16,7 +16,13 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from django.urls import path, include
+
+from Test_StayFlow import swagger_urls
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/', include('apps.rent.urls')),
+    path('', include(swagger_urls.urlpatterns)),
+
 ]

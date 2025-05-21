@@ -47,7 +47,8 @@ INSTALLED_APPS = [
     'apps.users',
     'apps.rent',
     'apps.location',
-
+    'rest_framework',
+    'drf_yasg',
 
 ]
 
@@ -80,9 +81,13 @@ TEMPLATES = [
 ]
 
 REST_FRAMEWORK = {
-
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+    ],
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
 }
+
 
 WSGI_APPLICATION = 'Test_StayFlow.wsgi.application'
 
