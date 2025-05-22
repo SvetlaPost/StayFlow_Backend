@@ -1,3 +1,6 @@
+from django.shortcuts import get_object_or_404
+from rest_framework.generics import ListAPIView
+from rest_framework.pagination import CursorPagination
 from rest_framework.response import Response
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
@@ -11,8 +14,54 @@ from django_filters.rest_framework import DjangoFilterBackend
 from apps.rent.serializers import RentCreateSerializer
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-from rest_framework import generics, permissions
 
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework import status, permissions, viewsets, generics
+from apps.rent.permissions import IsOwnerOrAdminOrReadOnly
+from apps.users.models import User
+
+
+class RentViewSet(viewsets.ModelViewSet):
+    queryset = Rent.objects.select_related("location", "owner")
+    serializer_class = RentSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsOwnerOrAdminOrReadOnly]
+    pagination_class = CursorPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['is_active', 'property_type']
+
+    def perform_destroy(self, instance):
+        instance.delete()
+
+    def get_queryset(self):
+        return Rent.objects.select_related("owner", "location").filter(is_deleted=False)
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="restore",
+        permission_classes=[permissions.IsAuthenticated]
+    )
+    @swagger_auto_schema(
+        operation_summary="Restore a soft-deleted listing",
+        responses={
+            200: openapi.Response(description="Listing restored successfully"),
+            400: "Listing is already active",
+            403: "Permission denied",
+        }
+    )
+    def restore(self, request, pk=None):
+        rent = self.get_object()
+
+        if rent.owner != request.user and not request.user.is_staff:
+            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+
+        if not rent.is_deleted:
+            return Response({"detail": "This listing is already active."}, status=status.HTTP_400_BAD_REQUEST)
+
+        rent.is_deleted = False
+        rent.save()
+        return Response({"detail": "Listing successfully restored."}, status=status.HTTP_200_OK)
 
 class RentListAPIView(generics.ListAPIView):
     queryset = Rent.objects.filter(is_active=True, is_deleted=False)
@@ -78,3 +127,46 @@ class RentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Rent.objects.all()
     serializer_class = RentSerializer
     permission_classes = [IsOwnerOrAdminOrReadOnly]
+
+class RentByUserAPIView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request, user_id):
+        user = get_object_or_404(User, id=user_id)
+
+        if request.user != user and not request.user.is_staff:
+            return Response({"detail": "Access denied."}, status=status.HTTP_403_FORBIDDEN)
+
+        rents = Rent.objects.select_related("owner", "location").filter(owner=user, is_deleted=False)
+        serializer = RentSerializer(rents, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class MyRentsAPIView(ListAPIView):
+    serializer_class = RentSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['is_active']
+
+    def get_queryset(self):
+        return Rent.objects.filter(owner=self.request.user, is_deleted=False)
+
+    @swagger_auto_schema(
+        operation_summary="📋 Get current user's rental listings",
+        manual_parameters=[
+            openapi.Parameter(
+                'is_active',
+                openapi.IN_QUERY,
+                description="Filter by active status (true or false)",
+                type=openapi.TYPE_BOOLEAN
+            ),
+            openapi.Parameter(
+                'page',
+                openapi.IN_QUERY,
+                description="Page number for pagination",
+                type=openapi.TYPE_INTEGER
+            )
+        ],
+        responses={200: RentSerializer(many=True)}
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)

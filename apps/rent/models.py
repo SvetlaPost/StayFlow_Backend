@@ -1,19 +1,4 @@
-#from django.db import models
 from rest_framework.exceptions import ValidationError
-
-#class Rent(models.Model):
-#    title = models.CharField(max_length=90)
-#    description = models.TextField()
-#    address = # id  со ссылкой на отдельный класс адреса
-#    price = models.DecimalField(
-#        max_digits=6,
-#        decimal_places=2
-#    )
-#    rooms_count = models.PositiveIntegerField()
-#    room_type = models.CharField(
-#        max_length=40,
-#        choises=RoomType.choices()
-#    )
 
 from apps.rent.choices.room_type import RoomType
 from apps.users.models import User

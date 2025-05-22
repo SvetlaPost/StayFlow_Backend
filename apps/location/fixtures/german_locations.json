@@ -1,0 +1,47 @@
+[
+  {
+    "model": "location.location",
+    "fields": {
+      "city": "Berlin",
+      "district": "Mitte",
+      "state": "Berlin",
+      "country": "Germany"
+    }
+  },
+  {
+    "model": "location.location",
+    "fields": {
+      "city": "Hamburg",
+      "district": "Altona",
+      "state": "Hamburg",
+      "country": "Germany"
+    }
+  },
+  {
+    "model": "location.location",
+    "fields": {
+      "city": "München",
+      "district": "Schwabing",
+      "state": "Bavaria",
+      "country": "Germany"
+    }
+  },
+  {
+    "model": "location.location",
+    "fields": {
+      "city": "Köln",
+      "district": "Innenstadt",
+      "state": "North Rhine–Westphalia",
+      "country": "Germany"
+    }
+  },
+  {
+    "model": "location.location",
+    "fields": {
+      "city": "Frankfurt",
+      "district": "Nordend",
+      "state": "Hesse",
+      "country": "Germany"
+    }
+  }
+]
