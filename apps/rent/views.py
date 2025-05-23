@@ -1,9 +1,10 @@
 from django.shortcuts import get_object_or_404
+from rest_framework.filters import OrderingFilter
 from rest_framework.generics import ListAPIView
-from rest_framework.pagination import CursorPagination
+from rest_framework.pagination import CursorPagination, PageNumberPagination
 from rest_framework.response import Response
 from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 
 from apps.rent.models import Rent
@@ -128,6 +129,13 @@ class RentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = RentSerializer
     permission_classes = [IsOwnerOrAdminOrReadOnly]
 
+
+class RentPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
 class RentByUserAPIView(APIView):
     permission_classes = [permissions.IsAdminUser]
 
@@ -148,7 +156,7 @@ class MyRentsAPIView(ListAPIView):
     filterset_fields = ['is_active']
 
     def get_queryset(self):
-        return Rent.objects.filter(owner=self.request.user, is_deleted=False)
+        return Rent.objects.filter(owner=self.request.user, is_deleted=False).order_by('id')
 
     @swagger_auto_schema(
         operation_summary="📋 Get current user's rental listings",
@@ -170,3 +178,37 @@ class MyRentsAPIView(ListAPIView):
     )
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
+
+
+class RentByLocationAPIView(ListAPIView):
+    serializer_class = RentSerializer
+    permission_classes = [AllowAny]
+    pagination_class = RentPagination
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_fields = ['location__city', 'location__district']
+    ordering_fields = ['daily_price', 'monthly_price', 'created_at']
+    ordering = ['-created_at']
+
+    @swagger_auto_schema(
+        operation_summary="🏙 Filter listings by city and district",
+        manual_parameters=[
+            openapi.Parameter('location__city', openapi.IN_QUERY, type=openapi.TYPE_STRING, description="City"),
+            openapi.Parameter('location__district', openapi.IN_QUERY, type=openapi.TYPE_STRING, description="District"),
+            openapi.Parameter('ordering', openapi.IN_QUERY, type=openapi.TYPE_STRING,
+                              description="Sort by fields: daily_price, monthly_price, created_at (prefix with '-' for descending)"),
+            openapi.Parameter('page', openapi.IN_QUERY, type=openapi.TYPE_INTEGER, description="Page number"),
+        ]
+    )
+
+    def get_queryset(self):
+        city = self.request.query_params.get('city')
+        district = self.request.query_params.get('district')
+
+        queryset = Rent.objects.select_related('location').filter(is_active=True, is_deleted=False)
+
+        if city:
+            queryset = queryset.filter(location__city__iexact=city)
+        if district:
+            queryset = queryset.filter(location__district__iexact=district)
+
+        return queryset

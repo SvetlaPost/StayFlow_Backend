@@ -1,5 +1,8 @@
 from django.db import models
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_yasg import openapi
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.filters import OrderingFilter
 from rest_framework.generics import RetrieveAPIView, UpdateAPIView, ListAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -14,7 +17,7 @@ from .serializers import (
 )
 from rest_framework import generics, permissions
 from django.contrib.auth import get_user_model
-from .permissions import IsOwnerOrAdmin
+from .permissions import IsOwnerOrAdmin, IsSelfOrAdmin
 
 User = get_user_model()
 
@@ -66,27 +69,29 @@ class UserProfileAPIView(RetrieveAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = UserProfileSerializer
 
-    @swagger_auto_schema(operation_summary="👤 Get current user profile")
+    @swagger_auto_schema(operation_summary="Get current user profile")
     def get_object(self):
         return self.request.user
 
-class IsSelfOrAdmin(BasePermission):
-
-    def has_object_permission(self, request, view, obj):
-        return request.user and (request.user == obj or request.user.is_staff)
 
 class UserProfileUpdateAPIView(UpdateAPIView):
     permission_classes = [IsSelfOrAdmin]
     serializer_class = UserProfileSerializer
 
-    @swagger_auto_schema(operation_summary="✏️ Update current user profile")
+    @swagger_auto_schema(operation_summary="Update current user profile")
     def get_object(self):
-        return self.request.user
+        user = self.request.user
+        if not (user.is_staff or self.kwargs.get('pk') == str(user.id)):
+            raise PermissionDenied("You can only update your own profile.")
+        return user
 
 
 class PopularHostsAPIView(ListAPIView):
     serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_fields = ['is_host', 'is_staff', 'is_active']
+    ordering_fields = ['rent_count']
 
     @swagger_auto_schema(
         operation_summary="🔥 List top hosts by number of listings",
