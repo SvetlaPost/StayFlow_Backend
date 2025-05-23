@@ -65,6 +65,18 @@ class RentViewSet(viewsets.ModelViewSet):
             403: "Permission denied",
         }
     )
+    def restore(self, request, pk=None):
+        rent = self.get_object()
+        if rent.owner != request.user and not request.user.is_staff:
+            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+
+        if not rent.is_deleted:
+            return Response({"detail": "This listing is already active."}, status=status.HTTP_400_BAD_REQUEST)
+
+        rent.is_deleted = False
+        rent.save()
+        return Response({"detail": "Listing successfully restored."}, status=status.HTTP_200_OK)
+
     @action(detail=False, methods=["get"], url_path="popular")
     @swagger_auto_schema(
         operation_summary="🔥 Get popular rental listings by views",
@@ -78,19 +90,6 @@ class RentViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset().order_by("-view_count")[:limit]
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
-
-    def restore(self, request, pk=None):
-        rent = self.get_object()
-
-        if rent.owner != request.user and not request.user.is_staff:
-            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
-
-        if not rent.is_deleted:
-            return Response({"detail": "This listing is already active."}, status=status.HTTP_400_BAD_REQUEST)
-
-        rent.is_deleted = False
-        rent.save()
-        return Response({"detail": "Listing successfully restored."}, status=status.HTTP_200_OK)
 
 class RentListAPIView(generics.ListAPIView):
     queryset = Rent.objects.filter(is_active=True, is_deleted=False)
