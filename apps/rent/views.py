@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
+from rest_framework.filters import OrderingFilter
 
 from apps.rent.models import Rent
 from apps.rent.permissions import IsOwnerOrAdminOrReadOnly
@@ -28,8 +29,11 @@ class RentViewSet(viewsets.ModelViewSet):
     serializer_class = RentSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsOwnerOrAdminOrReadOnly]
     pagination_class = CursorPagination
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['is_active', 'property_type']
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_class = RentFilter
+
+    ordering_fields = ['created_at', 'daily_price', 'monthly_price']
+    ordering = ['-created_at']
 
     def perform_destroy(self, instance):
         instance.delete()
@@ -159,7 +163,7 @@ class MyRentsAPIView(ListAPIView):
         return Rent.objects.filter(owner=self.request.user, is_deleted=False).order_by('id')
 
     @swagger_auto_schema(
-        operation_summary="📋 Get current user's rental listings",
+        operation_summary="Get current user's rental listings",
         manual_parameters=[
             openapi.Parameter(
                 'is_active',
@@ -190,7 +194,7 @@ class RentByLocationAPIView(ListAPIView):
     ordering = ['-created_at']
 
     @swagger_auto_schema(
-        operation_summary="🏙 Filter listings by city and district",
+        operation_summary="Filter listings by city and district",
         manual_parameters=[
             openapi.Parameter('location__city', openapi.IN_QUERY, type=openapi.TYPE_STRING, description="City"),
             openapi.Parameter('location__district', openapi.IN_QUERY, type=openapi.TYPE_STRING, description="District"),
