@@ -25,21 +25,19 @@ from apps.users.models import User
 
 
 class RentViewSet(viewsets.ModelViewSet):
-    queryset = Rent.objects.select_related("location", "owner")
     serializer_class = RentSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsOwnerOrAdminOrReadOnly]
     pagination_class = CursorPagination
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_class = RentFilter
-
     ordering_fields = ['created_at', 'daily_price', 'monthly_price']
     ordering = ['-created_at']
 
-    def perform_destroy(self, instance):
-        instance.delete()
-
     def get_queryset(self):
         return Rent.objects.select_related("owner", "location").filter(is_deleted=False)
+
+    def perform_destroy(self, instance):
+        instance.delete()
 
     @action(
         detail=True,
