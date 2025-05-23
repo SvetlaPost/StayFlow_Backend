@@ -42,6 +42,18 @@ class RentViewSet(viewsets.ModelViewSet):
     @action(
         detail=True,
         methods=["post"],
+        url_path="increment-view",
+        permission_classes=[permissions.AllowAny],
+    )
+    def increment_view(self, request, pk=None):
+        rent = self.get_object()
+        rent.view_count += 1
+        rent.save()
+        return Response({"message": "View count incremented."}, status=200)
+
+    @action(
+        detail=True,
+        methods=["post"],
         url_path="restore",
         permission_classes=[permissions.IsAuthenticated]
     )
@@ -53,6 +65,20 @@ class RentViewSet(viewsets.ModelViewSet):
             403: "Permission denied",
         }
     )
+    @action(detail=False, methods=["get"], url_path="popular")
+    @swagger_auto_schema(
+        operation_summary="🔥 Get popular rental listings by views",
+        manual_parameters=[
+            openapi.Parameter('limit', openapi.IN_QUERY, type=openapi.TYPE_INTEGER,
+                              description="Limit number of results")
+        ]
+    )
+    def popular(self, request):
+        limit = int(request.query_params.get("limit", 10))
+        queryset = self.get_queryset().order_by("-view_count")[:limit]
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
     def restore(self, request, pk=None):
         rent = self.get_object()
 
@@ -130,6 +156,12 @@ class RentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Rent.objects.all()
     serializer_class = RentSerializer
     permission_classes = [IsOwnerOrAdminOrReadOnly]
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.view_count += 1
+        instance.save()
+        return super().retrieve(request, *args, **kwargs)
 
 
 class RentPagination(PageNumberPagination):

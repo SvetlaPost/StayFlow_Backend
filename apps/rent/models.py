@@ -46,6 +46,9 @@ class Rent(models.Model):
         default=True,
         help_text="Uncheck to temporarily hide this listing from users."
     )
+
+    view_count = models.PositiveIntegerField(default=0)
+
     is_deleted = models.BooleanField(default=False)
 
     is_daily_available = models.BooleanField(
