@@ -3,11 +3,13 @@ from datetime import date, timedelta
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status, viewsets
+from rest_framework.decorators import action
+
 
 from apps.booking import models
 from apps.booking.models import Booking, BookingLog
@@ -15,6 +17,8 @@ from apps.booking.permissions import IsBookingOwnerOrAdmin, IsBookingRelatedOrAd
 from apps.booking.serializers import BookingSerializer
 from apps.booking.utils import send_booking_notification
 from django.db.models import Q
+
+from decimal import Decimal
 
 
 
@@ -36,23 +40,72 @@ class BookingViewSet(viewsets.ModelViewSet):
             description=description,
         )
 
+   #def perform_create(self, serializer):
+   #    rent = serializer.validated_data['rent']
+   #    start_date = serializer.validated_data['start_date']
+   #    end_date = serializer.validated_data['end_date']
+   #    commission = self.calculate_commission(rent, start_date, end_date)
+
+   #    booking = serializer.save(renter=self.request.user, commission_amount=commission)
+
+   #    self.log_booking_action(booking, self.request.user, "create", "Booking created.")
+
+   #    #send_booking_notification(booking, to_host=True)
+   #    send_booking_notification(booking, to_host=False)
+
     def perform_create(self, serializer):
         rent = serializer.validated_data['rent']
         start_date = serializer.validated_data['start_date']
         end_date = serializer.validated_data['end_date']
         commission = self.calculate_commission(rent, start_date, end_date)
 
-        booking = serializer.save(renter=self.request.user, commission_amount=commission)
+        conflict = Booking.objects.filter(
+            rent=rent,
+            status__in=["pending", "confirmed"],
+            start_date__lt=end_date,
+            end_date__gt=start_date
+        ).exists()
 
-        self.log_booking_action(booking, self.request.user, "create", "Booking created.")
+        if conflict:
+            raise ValidationError("These dates are already booked or temporarily reserved by another user.")
 
-        send_booking_notification(booking, to_host=True)
-        send_booking_notification(booking, to_host=False)
+        booking = serializer.save(
+            renter=self.request.user,
+            commission_amount=commission,
+            status='pending'
+        )
+
+
+        host_msg = send_booking_notification(booking, to_host=True)
+        renter_msg = send_booking_notification(booking, to_host=False)
+
+        self.created_booking = booking
+        self.host_msg = host_msg
+        self.renter_msg = renter_msg
+
+        message = (
+            f"Dear {booking.renter.full_name},\n\n"
+            f"The booking request for '{booking.rent.title}' from {booking.start_date} to {booking.end_date} "
+            f"has been received and is currently **pending**.\n"
+            f"These dates are now marked as temporarily reserved until the host takes action.\n\n"
+            f"Thank you for using our platform!"
+        )
+        print(f"[Notification to renter] {message}")
+
+        self.created_message = message
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        if hasattr(self, "created_booking"):
+            response.data['notification_host'] = self.host_msg
+            response.data['notification_renter'] = self.renter_msg
+            response.data['info'] = "Other users will be blocked from booking the same dates."
+        return response
 
     def calculate_commission(self, rent, start_date, end_date):
         total_days = (end_date - start_date).days or 1
-        daily_price = rent.daily_price or 0
-        return round(total_days * daily_price * 0.1, 2)
+        daily_price = rent.daily_price or Decimal("0")
+        return round(daily_price * Decimal(total_days) * Decimal("0.1"), 2)
 
     @swagger_auto_schema(
         operation_summary="Create a booking",
@@ -85,7 +138,37 @@ class BookingViewSet(viewsets.ModelViewSet):
         else:
             raise PermissionDenied("Only owner or admin can cancel this booking.")
 
+    # Подтверждение брони хостом
+    @action(detail=True, methods=["post"], url_path="confirm")
+    def confirm_booking(self, request, pk=None):
+        booking = self.get_object()
 
+        if request.user != booking.rent.owner and not request.user.is_staff:
+            return Response({"detail": "Only the host or admin can confirm this booking."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        if booking.status != "pending":
+            return Response({"detail": "Booking is not in pending state."}, status=status.HTTP_400_BAD_REQUEST)
+
+        booking.status = "confirmed"
+        booking.save()
+        return Response({"detail": "Booking confirmed."}, status=status.HTTP_200_OK)
+
+    # Отмена хостом
+    @action(detail=True, methods=["post"], url_path="cancel")
+    def cancel_booking(self, request, pk=None):
+        booking = self.get_object()
+
+        if request.user != booking.rent.owner and not request.user.is_staff:
+            return Response({"detail": "Only the host or admin can cancel this booking."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        if booking.status == "cancelled":
+            return Response({"detail": "Booking is already cancelled."}, status=status.HTTP_400_BAD_REQUEST)
+
+        booking.status = "cancelled"
+        booking.save()
+        return Response({"detail": "Booking cancelled."}, status=status.HTTP_200_OK)
 
 
 class MyBookingsView(ListAPIView):
