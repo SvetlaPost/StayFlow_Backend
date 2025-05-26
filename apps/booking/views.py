@@ -117,17 +117,21 @@ class BookingViewSet(viewsets.ModelViewSet):
 
     def perform_destroy(self, instance):
         user = self.request.user
-        self.log_booking_action(instance, self.request.user, "cancel", "Booking canceled.")
+        self.log_booking_action(instance, user, "cancel", "Booking canceled.")
 
         if user == instance.renter:
             days_before = (instance.start_date - date.today()).days
 
             if instance.status == 'pending':
                 instance.delete()
+                print(
+                    f"[PENDING CANCELLED] Booking #{instance.id} by {user.email} for '{instance.rent.title}' "
+                    f"({instance.start_date} → {instance.end_date}) has been deleted."
+                )
                 return
 
             if days_before >= 3:
-                commission = self.calculate_commission(instance)
+                commission = self.calculate_commission(instance.rent, instance.start_date, instance.end_date)
                 instance.delete()
                 raise PermissionDenied(f"Booking canceled. 10% commission: {commission}€ will be withheld.")
             else:
@@ -136,7 +140,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         if user.is_staff:
             instance.delete()
         else:
-            raise PermissionDenied("Only owner or admin can cancel this booking.")
+            raise PermissionDenied("Only the renter, owner or admin can cancel this booking.")
 
     # Подтверждение брони хостом
     @action(detail=True, methods=["post"], url_path="confirm")
