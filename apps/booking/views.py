@@ -10,10 +10,10 @@ from rest_framework.response import Response
 from rest_framework import status, viewsets
 
 from apps.booking import models
-from apps.booking.models import Booking
+from apps.booking.models import Booking, BookingLog
 from apps.booking.permissions import IsBookingOwnerOrAdmin, IsBookingRelatedOrAdmin
 from apps.booking.serializers import BookingSerializer
-
+from apps.booking.utils import send_booking_notification
 
 
 class BookingViewSet(viewsets.ModelViewSet):
@@ -26,13 +26,26 @@ class BookingViewSet(viewsets.ModelViewSet):
             return Booking.objects.all()
         return Booking.objects.filter(models.Q(renter=user) | models.Q(rent__owner=user)).distinct()
 
+    def log_booking_action(self, booking, user, action, description=""):
+        BookingLog.objects.create(
+            booking=booking,
+            user=user,
+            action=action,
+            description=description,
+        )
+
     def perform_create(self, serializer):
         rent = serializer.validated_data['rent']
         start_date = serializer.validated_data['start_date']
         end_date = serializer.validated_data['end_date']
         commission = self.calculate_commission(rent, start_date, end_date)
 
-        serializer.save(renter=self.request.user, commission_amount=commission)
+        booking = serializer.save(renter=self.request.user, commission_amount=commission)
+
+        self.log_booking_action(booking, self.request.user, "create", "Booking created.")
+
+        send_booking_notification(booking, to_host=True)
+        send_booking_notification(booking, to_host=False)
 
     def calculate_commission(self, rent, start_date, end_date):
         total_days = (end_date - start_date).days or 1
@@ -49,6 +62,7 @@ class BookingViewSet(viewsets.ModelViewSet):
 
     def perform_destroy(self, instance):
         user = self.request.user
+        self.log_booking_action(instance, self.request.user, "cancel", "Booking canceled.")
 
         if user == instance.renter:
             days_before = (instance.start_date - date.today()).days

@@ -51,3 +51,23 @@ class Booking(models.Model):
 
     def __str__(self):
         return f"Booking #{self.pk} by {self.renter.email} on {self.rent.title}"
+
+class BookingLog(models.Model):
+    ACTION_CHOICES = [
+        ('create', 'Created'),
+        ('cancel', 'Cancelled'),
+        ('update', 'Updated'),
+    ]
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    action = models.CharField(max_length=10, choices=ACTION_CHOICES)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    description = models.TextField(blank=True)
+
+    action = models.CharField(max_length=10, choices=ACTION_CHOICES)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    description = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.action} on booking #{self.booking.id} by {self.user}"
+

@@ -26,5 +26,7 @@ urlpatterns = [
 
     path('api/users/', include('apps.users.urls')),
     path('', include(swagger_urls.urlpatterns)),
+    path('api/', include('apps.booking.urls')),
+
 
 ]

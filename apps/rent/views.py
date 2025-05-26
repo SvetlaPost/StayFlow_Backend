@@ -79,7 +79,7 @@ class RentViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="popular")
     @swagger_auto_schema(
-        operation_summary="🔥 Get popular rental listings by views",
+        operation_summary="Get popular rental listings by views",
         manual_parameters=[
             openapi.Parameter('limit', openapi.IN_QUERY, type=openapi.TYPE_INTEGER,
                               description="Limit number of results")
@@ -98,7 +98,7 @@ class RentViewSet(viewsets.ModelViewSet):
         permission_classes=[permissions.AllowAny],
     )
     @swagger_auto_schema(
-        operation_summary="🏖️ Get rentals available for weekends",
+        operation_summary="Get rentals available for weekends",
         operation_description="Returns rentals that are marked as available for daily rental — ideal for weekend stays.",
     )
     def available_on_weekend(self, request):

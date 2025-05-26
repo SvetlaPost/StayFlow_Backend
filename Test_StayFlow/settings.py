@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'apps.users',
     'apps.rent',
     'apps.location',
+    'apps.booking',
     'rest_framework',
     'drf_yasg',
 

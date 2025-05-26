@@ -18,6 +18,7 @@ from .serializers import (
 from rest_framework import generics, permissions
 from django.contrib.auth import get_user_model
 from .permissions import IsOwnerOrAdmin, IsSelfOrAdmin
+from ..booking.models import Booking
 
 User = get_user_model()
 
@@ -94,7 +95,7 @@ class PopularHostsAPIView(ListAPIView):
     ordering_fields = ['rent_count']
 
     @swagger_auto_schema(
-        operation_summary="🔥 List top hosts by number of listings",
+        operation_summary="List top hosts by number of listings",
         manual_parameters=[
             openapi.Parameter(
                 'limit', openapi.IN_QUERY,
@@ -113,3 +114,24 @@ class PopularHostsAPIView(ListAPIView):
         return User.objects.filter(is_host=True)\
             .annotate(rent_count=models.Count('rents'))\
             .order_by('-rent_count')[:limit]
+
+class BookingWithCommissionAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(operation_summary="Calculate and show commission for a booking")
+    def get(self, request, booking_id):
+        try:
+            booking = Booking.objects.select_related('rent').get(pk=booking_id)
+        except Booking.DoesNotExist:
+            return Response({"error": "Booking not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if request.user != booking.renter and not request.user.is_staff:
+            raise PermissionDenied("You do not have permission to view this commission.")
+
+        commission = self.calculate_commission(booking)
+        return Response({"booking_id": booking.id, "commission": commission}, status=status.HTTP_200_OK)
+
+    def calculate_commission(self, booking):
+        total_days = (booking.end_date - booking.start_date).days or 1
+        daily_price = booking.rent.daily_price or 0
+        return round(total_days * daily_price * 0.1, 2)
