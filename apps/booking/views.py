@@ -14,6 +14,8 @@ from apps.booking.models import Booking, BookingLog
 from apps.booking.permissions import IsBookingOwnerOrAdmin, IsBookingRelatedOrAdmin
 from apps.booking.serializers import BookingSerializer
 from apps.booking.utils import send_booking_notification
+from django.db.models import Q
+
 
 
 class BookingViewSet(viewsets.ModelViewSet):
