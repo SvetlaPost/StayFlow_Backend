@@ -91,6 +91,30 @@ class RentViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="available-on-weekend",
+        permission_classes=[permissions.AllowAny],
+    )
+    @swagger_auto_schema(
+        operation_summary="🏖️ Get rentals available for weekends",
+        operation_description="Returns rentals that are marked as available for daily rental — ideal for weekend stays.",
+    )
+    def available_on_weekend(self, request):
+        queryset = self.get_queryset().filter(
+            is_daily_available=True,
+            is_active=True,
+            is_deleted=False
+        ).order_by("-created_at")
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
 class RentListAPIView(generics.ListAPIView):
     queryset = Rent.objects.filter(is_active=True, is_deleted=False)
     serializer_class = RentSerializer
