@@ -7,7 +7,7 @@ from rest_framework.generics import RetrieveAPIView, UpdateAPIView, ListAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import AllowAny, IsAuthenticated, BasePermission
+from rest_framework.permissions import AllowAny, IsAuthenticated, BasePermission, IsAdminUser
 from drf_yasg.utils import swagger_auto_schema
 
 from .serializers import (
@@ -19,8 +19,26 @@ from rest_framework import generics, permissions
 from django.contrib.auth import get_user_model
 from .permissions import IsOwnerOrAdmin, IsSelfOrAdmin
 from ..booking.models import Booking
+import logging
 
 User = get_user_model()
+
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from rest_framework.views import APIView
+from drf_yasg.utils import swagger_auto_schema
+from rest_framework_simplejwt.tokens import RefreshToken
+
+from .serializers import RegisterSerializer
+
+logger = logging.getLogger(__name__)
+handler = logging.FileHandler('registration.log')
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
+
 
 class RegisterAPIView(APIView):
     permission_classes = [AllowAny]
@@ -31,9 +49,32 @@ class RegisterAPIView(APIView):
     )
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        if serializer.is_valid():
+            user = serializer.save()
+
+            logger.info(f"New user registered: {user.full_name} ({user.email})")
+
+            refresh = RefreshToken.for_user(user)
+            tokens = {
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+            }
+
+            logger.info(
+                f"New user registered: "
+                f"ID={user.id}, Email={user.email}, Full Name={user.full_name}, "
+                f"Is Host={user.is_host}, Is Admin={user.is_staff}, Is Active={user.is_active}, "
+                f"Refresh Token={tokens['refresh']}, Access Token={tokens['access']}"
+            )
+
+            response_data = serializer.data
+            response_data.update({'tokens': tokens})
+
+            return Response(response_data, status=status.HTTP_201_CREATED)
+        else:
+            logger.warning(f"Registration failed: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class BulkRegisterHostsAPIView(APIView):
@@ -48,6 +89,12 @@ class BulkRegisterHostsAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         users = serializer.save()
         return Response({"created": [user.email for user in users]}, status=status.HTTP_201_CREATED)
+
+
+class UserListAPIView(ListAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserProfileSerializer
+    permission_classes = [IsAdminUser]
 
 
 class UserMeView(generics.RetrieveUpdateAPIView):
@@ -115,6 +162,7 @@ class PopularHostsAPIView(ListAPIView):
             .annotate(rent_count=models.Count('rents'))\
             .order_by('-rent_count')[:limit]
 
+
 class BookingWithCommissionAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -134,4 +182,4 @@ class BookingWithCommissionAPIView(APIView):
     def calculate_commission(self, booking):
         total_days = (booking.end_date - booking.start_date).days or 1
         daily_price = booking.rent.daily_price or 0
-        return round(total_days * daily_price * 0.1, 2)
+        return round(total_days * float(daily_price) * 0.1, 2)
