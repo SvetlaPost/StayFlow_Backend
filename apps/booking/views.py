@@ -21,6 +21,9 @@ from django.db.models import Q
 
 from decimal import Decimal
 
+from rest_framework.exceptions import NotFound
+
+
 
 
 class BookingViewSet(viewsets.ModelViewSet):
@@ -71,15 +74,15 @@ class BookingViewSet(viewsets.ModelViewSet):
         end_date = serializer.validated_data['end_date']
         commission = self.calculate_commission(rent, start_date, end_date)
 
-        conflict = Booking.objects.filter(
-            rent=rent,
-            status__in=["pending", "confirmed"],
-            start_date__lt=end_date,
-            end_date__gt=start_date
-        ).exists()
-
-        if conflict:
-            raise ValidationError("These dates are already booked or temporarily reserved by another user.")
+      #  conflict = Booking.objects.filter(
+      #      rent=rent,
+      #      status__in=["pending", "confirmed"],
+      #      start_date__lt=end_date,
+      #      end_date__gt=start_date
+      #  ).exists()
+#
+      #  if conflict:
+      #      raise ValidationError("These dates are already booked or temporarily reserved by another user.")
 
         booking = serializer.save(
             renter=self.request.user,
@@ -159,12 +162,12 @@ class BookingViewSet(viewsets.ModelViewSet):
         else:
             raise PermissionDenied("Only the renter, owner or admin can cancel this booking.")
 
-
     @action(detail=True, methods=["post"], url_path="confirm")
     def confirm_booking(self, request, pk=None):
         booking = self.get_object()
+        user = request.user
 
-        if request.user != booking.rent.owner and not request.user.is_staff:
+        if user != booking.rent.owner and not user.is_staff:
             return Response({"detail": "Only the host or admin can confirm this booking."},
                             status=status.HTTP_403_FORBIDDEN)
 
@@ -173,7 +176,25 @@ class BookingViewSet(viewsets.ModelViewSet):
 
         booking.status = "confirmed"
         booking.save()
-        return Response({"detail": "Booking confirmed."}, status=status.HTTP_200_OK)
+
+        # Автоотмена остальных
+        overlapping_pending = Booking.objects.filter(
+            rent=booking.rent,
+            status="pending",
+            start_date__lt=booking.end_date,
+            end_date__gt=booking.start_date
+        ).exclude(pk=booking.pk)
+
+        for b in overlapping_pending:
+            b.status = "cancelled"
+            b.save()
+
+            send_booking_notification(b, to_host=False, cancelled=True)
+
+        send_booking_notification(booking, to_host=False)
+
+        return Response({"detail": "Booking confirmed. Other pending bookings have been declined."},
+                        status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_path="cancel")
     def cancel_booking(self, request, pk=None):
@@ -188,6 +209,9 @@ class BookingViewSet(viewsets.ModelViewSet):
 
         booking.status = "cancelled"
         booking.save()
+
+        send_booking_notification(booking, to_host=False, cancelled=True)
+
         return Response({"detail": "Booking cancelled."}, status=status.HTTP_200_OK)
 
 
