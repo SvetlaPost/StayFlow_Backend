@@ -16,6 +16,7 @@ from apps.booking.models import Booking, BookingLog
 from apps.booking.permissions import IsBookingOwnerOrAdmin, IsBookingRelatedOrAdmin
 from apps.booking.serializers import BookingSerializer
 from apps.booking.utils import send_booking_notification
+
 from django.db.models import Q
 
 from decimal import Decimal
@@ -30,7 +31,29 @@ class BookingViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.is_staff:
             return Booking.objects.all()
-        return Booking.objects.filter(models.Q(renter=user) | models.Q(rent__owner=user)).distinct()
+        return Booking.objects.filter(Q(renter=user) | Q(rent__owner=user)).distinct()
+
+    def get_object(self):
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+        booking_id = self.kwargs.get(lookup_url_kwarg)
+
+        try:
+            obj = Booking.objects.select_related("rent", "renter").get(pk=booking_id)
+        except Booking.DoesNotExist:
+            raise NotFound("Booking not found.")
+
+        user = self.request.user
+        print(f"[DEBUG] get_object called: booking #{obj.id}, requested by {user.email}, "
+              f"is_staff={user.is_staff}, is_host={user.is_host}, renter_id={obj.renter_id}, rent_owner_id={obj.rent.owner_id}")
+
+        if user.is_staff:
+            return obj
+        if user.is_host and obj.rent.owner_id == user.id:
+            return obj
+        if obj.renter_id == user.id:
+            return obj
+
+        raise PermissionDenied("You do not have permission to view this booking.")
 
     def log_booking_action(self, booking, user, action, description=""):
         BookingLog.objects.create(
@@ -40,18 +63,7 @@ class BookingViewSet(viewsets.ModelViewSet):
             description=description,
         )
 
-   #def perform_create(self, serializer):
-   #    rent = serializer.validated_data['rent']
-   #    start_date = serializer.validated_data['start_date']
-   #    end_date = serializer.validated_data['end_date']
-   #    commission = self.calculate_commission(rent, start_date, end_date)
 
-   #    booking = serializer.save(renter=self.request.user, commission_amount=commission)
-
-   #    self.log_booking_action(booking, self.request.user, "create", "Booking created.")
-
-   #    #send_booking_notification(booking, to_host=True)
-   #    send_booking_notification(booking, to_host=False)
 
     def perform_create(self, serializer):
         rent = serializer.validated_data['rent']
@@ -113,7 +125,12 @@ class BookingViewSet(viewsets.ModelViewSet):
         responses={201: BookingSerializer()},
     )
     def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
+        response = super().create(request, *args, **kwargs)
+        if hasattr(self, "created_booking"):
+            response.data['notification_host'] = self.host_msg
+            response.data['notification_renter'] = self.renter_msg
+            response.data['info'] = "Other users will be blocked from booking the same dates."
+        return response
 
     def perform_destroy(self, instance):
         user = self.request.user
@@ -142,7 +159,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         else:
             raise PermissionDenied("Only the renter, owner or admin can cancel this booking.")
 
-    # Подтверждение брони хостом
+
     @action(detail=True, methods=["post"], url_path="confirm")
     def confirm_booking(self, request, pk=None):
         booking = self.get_object()
@@ -158,7 +175,6 @@ class BookingViewSet(viewsets.ModelViewSet):
         booking.save()
         return Response({"detail": "Booking confirmed."}, status=status.HTTP_200_OK)
 
-    # Отмена хостом
     @action(detail=True, methods=["post"], url_path="cancel")
     def cancel_booking(self, request, pk=None):
         booking = self.get_object()

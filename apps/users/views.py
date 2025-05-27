@@ -52,7 +52,9 @@ class RegisterAPIView(APIView):
         if serializer.is_valid():
             user = serializer.save()
 
+
             logger.info(f"New user registered: {user.full_name} ({user.email})")
+
 
             refresh = RefreshToken.for_user(user)
             tokens = {
@@ -60,15 +62,22 @@ class RegisterAPIView(APIView):
                 'access': str(refresh.access_token),
             }
 
+
             logger.info(
                 f"New user registered: "
                 f"ID={user.id}, Email={user.email}, Full Name={user.full_name}, "
                 f"Is Host={user.is_host}, Is Admin={user.is_staff}, Is Active={user.is_active}, "
-                f"Refresh Token={tokens['refresh']}, Access Token={tokens['access']}"
+                f"Refresh Token={tokens['refresh']}, Access Token={tokens['access']}, Role={user.role}"
             )
 
+            welcome_message = f"Welcome to StayFlow, {user.full_name}!"
+
+            # Prepare response
             response_data = serializer.data
-            response_data.update({'tokens': tokens})
+            response_data.update({
+                'tokens': tokens,
+                'message': welcome_message
+            })
 
             return Response(response_data, status=status.HTTP_201_CREATED)
         else:

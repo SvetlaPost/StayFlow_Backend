@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from apps.rent.models import Rent
 
+
 class Booking(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
