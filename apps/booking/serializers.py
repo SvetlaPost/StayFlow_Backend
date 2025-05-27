@@ -28,3 +28,10 @@ class BookingSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("This property is already booked for the selected dates.")
 
         return attrs
+
+
+    def validate_start_date(self, value):
+        if value < date.today():
+            raise serializers.ValidationError("Booking start date cannot be in the past.")
+        return value
+

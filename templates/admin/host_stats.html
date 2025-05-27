@@ -1,0 +1,29 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+  <h1>📊 Host Statistics</h1>
+  <table class="adminlist table table-striped">
+    <thead>
+      <tr>
+        <th>Host</th>
+        <th>Email</th>
+        <th>Total Rents</th>
+        <th>Total Bookings</th>
+        <th>Confirmed Bookings</th>
+        <th>Avg Daily Price (€)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in stats %}
+      <tr>
+        <td>{{ s.host.full_name }}</td>
+        <td>{{ s.host.email }}</td>
+        <td>{{ s.total_rents }}</td>
+        <td>{{ s.total_bookings }}</td>
+        <td>{{ s.confirmed_bookings }}</td>
+        <td>{{ s.avg_daily_price|floatformat:2 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

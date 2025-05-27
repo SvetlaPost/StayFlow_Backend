@@ -5,11 +5,11 @@ from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.generics import ListAPIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-
+from rest_framework.views import APIView
 
 from apps.booking import models
 from apps.booking.models import Booking, BookingLog
@@ -17,13 +17,14 @@ from apps.booking.permissions import IsBookingOwnerOrAdmin, IsBookingRelatedOrAd
 from apps.booking.serializers import BookingSerializer
 from apps.booking.utils import send_booking_notification
 
-from django.db.models import Q
+from django.db.models import Q, Count, Avg
 
 from decimal import Decimal
 
 from rest_framework.exceptions import NotFound
 
-
+from apps.rent.models import Rent
+from apps.users.models import User
 
 
 class BookingViewSet(viewsets.ModelViewSet):
@@ -239,3 +240,34 @@ class MyBookingsView(ListAPIView):
     )
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
+
+
+class AdminHostStatsView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        hosts = User.objects.filter(is_host=True)
+
+        data = []
+
+        for host in hosts:
+            rents = Rent.objects.filter(owner=host)
+            total_rents = rents.count()
+
+            bookings = Booking.objects.filter(rent__in=rents)
+            total_bookings = bookings.count()
+            confirmed_bookings = bookings.filter(status="confirmed").count()
+            avg_price = rents.aggregate(avg=Avg("daily_price"))["avg"] or 0
+
+            data.append({
+                "host_id": host.id,
+                "email": host.email,
+                "full_name": host.full_name,
+                "total_rents": total_rents,
+                "total_bookings": total_bookings,
+                "confirmed_bookings": confirmed_bookings,
+                "avg_daily_price": round(avg_price, 2)
+            })
+
+        return Response(data)
+

@@ -4,7 +4,7 @@ from apps.rent.views import (
     RentViewSet,
     RentByUserAPIView,
     MyRentsAPIView,
-    RentByLocationAPIView,
+    RentByLocationAPIView, RentCreateAPIView,
 )
 
 router = DefaultRouter()
@@ -14,9 +14,11 @@ urlpatterns = [
     path('rents/my/', MyRentsAPIView.as_view(), name='my-rents'),
     path('rents/by-user/<int:user_id>/', RentByUserAPIView.as_view(), name='rents-by-user'),
     path('rents/by-location/', RentByLocationAPIView.as_view(), name='rents-by-location'),
+    path('rents/create/', RentCreateAPIView.as_view(), name='rent-create'),
     path('', include(router.urls)),
 
 ]
+
 
 
 

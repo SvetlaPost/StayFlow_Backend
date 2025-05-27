@@ -10,7 +10,7 @@ from rest_framework_simplejwt.views import (
 from apps.users.views import (
     RegisterAPIView,
     BulkRegisterHostsAPIView,
-    UserMeView, UserProfileAPIView, UserProfileUpdateAPIView, PopularHostsAPIView, UserListAPIView,
+    UserMeView, UserProfileAPIView, UserProfileUpdateAPIView, PopularHostsAPIView, UserListAPIView, MyHostStatsView,
 )
 
 
@@ -22,6 +22,7 @@ urlpatterns = [
     path('token/verify/', TokenVerifyView.as_view(), name='token_verify'),
     path('all/', UserListAPIView.as_view(), name='user-list'),
     path('me/', UserMeView.as_view(), name='user-me'),
+    path("host/my-stats/", MyHostStatsView.as_view(), name="my-host-stats"),
     path('profile/', UserProfileAPIView.as_view(), name='user-profile'),
     path('profile/update/', UserProfileUpdateAPIView.as_view(), name='user-profile-update'),
     path('hosts/popular/', PopularHostsAPIView.as_view(), name='popular-hosts'),

@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Avg
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_yasg import openapi
 from rest_framework.exceptions import PermissionDenied
@@ -20,6 +21,8 @@ from django.contrib.auth import get_user_model
 from .permissions import IsOwnerOrAdmin, IsSelfOrAdmin
 from ..booking.models import Booking
 import logging
+
+from ..rent.models import Rent
 
 User = get_user_model()
 
@@ -192,3 +195,29 @@ class BookingWithCommissionAPIView(APIView):
         total_days = (booking.end_date - booking.start_date).days or 1
         daily_price = booking.rent.daily_price or 0
         return round(total_days * float(daily_price) * 0.1, 2)
+
+
+class MyHostStatsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        if not user.is_host:
+            raise PermissionDenied("Only hosts can access this endpoint.")
+
+        rents = Rent.objects.filter(owner=user)
+        bookings = Booking.objects.filter(rent__in=rents)
+
+        stats = {
+            "host_id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "total_rents": rents.count(),
+            "total_bookings": bookings.count(),
+            "confirmed_bookings": bookings.filter(status="confirmed").count(),
+            "avg_daily_price": round(rents.aggregate(avg=Avg("daily_price"))["avg"] or 0, 2)
+        }
+
+        return Response(stats)
+
