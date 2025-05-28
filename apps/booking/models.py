@@ -2,6 +2,8 @@ from decimal import Decimal
 
 from django.db import models
 from django.conf import settings
+from django.core.exceptions import ValidationError
+
 from apps.rent.models import Rent
 
 COMMISSION_BY_CITY = {
@@ -84,13 +86,17 @@ class Booking(models.Model):
 
 
     def save(self, *args, **kwargs):
+
+        if not self.rent or self.rent.daily_price is None or self.rent.daily_price <= Decimal("0.00"):
+            raise ValidationError("Rent must have a valid daily price greater than 0.")
+
         nights = (self.end_date - self.start_date).days or 1
         self.base_price = self.rent.daily_price * nights
 
         city = self.rent.location.city.lower() if self.rent.location and self.rent.location.city else ""
         high_economy_cities = ['berlin', 'munich', 'hamburg', 'frankfurt', 'stuttgart']
 
-        self.commission_percent = 0.25 if city in high_economy_cities else 0.15
+        self.commission_percent = Decimal("0.25") if city in high_economy_cities else Decimal("0.15")
         self.commission_amount = self.base_price * self.commission_percent
         self.total_price = self.base_price + self.commission_amount
 

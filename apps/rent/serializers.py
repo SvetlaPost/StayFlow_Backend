@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from apps.location.serializers import LocationSerializer
@@ -51,7 +53,6 @@ class RentSerializer(serializers.ModelSerializer):
                     'monthly_price': "Monthly price cannot be negative."
                 })
 
-
 class RentCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rent
@@ -63,11 +64,39 @@ class RentCreateSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
-        if attrs.get('is_daily_available') and attrs.get('daily_price') is None:
-            raise serializers.ValidationError({'daily_price': 'Required for daily rental.'})
-        if attrs.get('is_monthly_available') and attrs.get('monthly_price') is None:
-            raise serializers.ValidationError({'monthly_price': 'Required for monthly rental.'})
+        if attrs.get('is_daily_available'):
+            price = attrs.get('daily_price')
+            if price is None:
+                raise serializers.ValidationError({'daily_price': 'Required for daily rental.'})
+            if price <= Decimal("0.00"):
+                raise serializers.ValidationError({'daily_price': 'Must be greater than 0.'})
+
+        if attrs.get('is_monthly_available'):
+            price = attrs.get('monthly_price')
+            if price is None:
+                raise serializers.ValidationError({'monthly_price': 'Required for monthly rental.'})
+            if price <= Decimal("0.00"):
+                raise serializers.ValidationError({'monthly_price': 'Must be greater than 0.'})
+
         return attrs
+
+    def validate(self, attrs):
+        if attrs.get('is_daily_available'):
+            price = attrs.get('daily_price')
+            if price is None:
+                raise serializers.ValidationError({'daily_price': 'Required for daily rental.'})
+            if price <= Decimal("0.00"):
+                raise serializers.ValidationError({'daily_price': 'Must be greater than 0.'})
+
+        if attrs.get('is_monthly_available'):
+            price = attrs.get('monthly_price')
+            if price is None:
+                raise serializers.ValidationError({'monthly_price': 'Required for monthly rental.'})
+            if price <= Decimal("0.00"):
+                raise serializers.ValidationError({'monthly_price': 'Must be greater than 0.'})
+
+        return attrs
+
 
 
 class BulkCreateRentSerializer(serializers.Serializer):

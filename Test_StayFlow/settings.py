@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'apps.rent',
     'apps.location',
     'apps.booking',
+    'apps.payments',
     'rest_framework',
     'drf_yasg',
     'rest_framework_simplejwt.token_blacklist',
@@ -118,6 +119,21 @@ SWAGGER_SETTINGS = {
             'description': 'JWT Authorization header using the Bearer scheme. Example: "Bearer your_token"',
         }
     }
+}
+
+LOGGING = {
+    "version": 1,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "loggers": {
+        "django.db.backends": {
+            "level": "DEBUG",
+            "handlers": ["console"],
+        },
+    },
 }
 
 

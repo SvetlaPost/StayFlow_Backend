@@ -23,6 +23,7 @@ from decimal import Decimal
 
 from rest_framework.exceptions import NotFound
 
+from apps.payments.services import process_payment_for_booking
 from apps.rent.models import Rent
 from apps.users.models import User
 
@@ -163,6 +164,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         else:
             raise PermissionDenied("Only the renter, owner or admin can cancel this booking.")
 
+
     @action(detail=True, methods=["post"], url_path="confirm")
     def confirm_booking(self, request, pk=None):
         booking = self.get_object()
@@ -175,10 +177,15 @@ class BookingViewSet(viewsets.ModelViewSet):
         if booking.status != "pending":
             return Response({"detail": "Booking is not in pending state."}, status=status.HTTP_400_BAD_REQUEST)
 
-        booking.status = "confirmed"
-        booking.save()
+        try:
+            process_payment_for_booking(booking)
+            booking.refresh_from_db()
+        except Exception as e:
+            return Response(
+                {"detail": f"Payment creation failed: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
-        # Автоотмена остальных
         overlapping_pending = Booking.objects.filter(
             rent=booking.rent,
             status="pending",
@@ -189,13 +196,13 @@ class BookingViewSet(viewsets.ModelViewSet):
         for b in overlapping_pending:
             b.status = "cancelled"
             b.save()
-
             send_booking_notification(b, to_host=False, cancelled=True)
 
         send_booking_notification(booking, to_host=False)
 
-        return Response({"detail": "Booking confirmed. Other pending bookings have been declined."},
-                        status=status.HTTP_200_OK)
+        return Response(
+            {"detail": "Booking confirmed and payment recorded. Other pending bookings have been declined."},
+            status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_path="cancel")
     def cancel_booking(self, request, pk=None):

@@ -1,0 +1,29 @@
+{% extends "admin/base_site.html" %}
+{% load humanize %}
+{% block content %}
+<h1>💼 Payment Statistics</h1>
+
+<p><strong>Total commission earned:</strong> {{ total_commission|floatformat:2 }} €</p>
+
+<h2>Commission by City</h2>
+<table class="admin-table">
+    <thead>
+        <tr>
+            <th>City</th>
+            <th>Total Commission (€)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in by_city %}
+        <tr>
+            <td>{{ row.rent__city }}</td>
+            <td>{{ row.total_commission|floatformat:2 }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="2">No data available.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

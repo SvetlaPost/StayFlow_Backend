@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework.exceptions import ValidationError
 
 from apps.rent.choices.room_type import RoomType
@@ -58,16 +60,16 @@ class Rent(models.Model):
     daily_price = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        null=True,
-        blank=True,
-        help_text="Price per day (if daily rental is enabled)."
-    )
+        null=False,
+        blank=False,
+        help_text="Daily rental price in EUR"
 
+    )
     is_monthly_available = models.BooleanField(
         default=False,
         help_text="Price per month (if monthly rental is enabled)."
     )
-    monthly_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    monthly_price = models.DecimalField(max_digits=10, decimal_places=2, null=False, blank=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -76,14 +78,12 @@ class Rent(models.Model):
     all_objects = models.Manager()
 
     def clean(self):
-        # daily price
         if self.is_daily_available:
             if self.daily_price is None:
                 raise ValidationError({'daily_price': 'Daily price is required if daily rental is enabled.'})
-            if self.daily_price < 0:
-                raise ValidationError({'daily_price': 'Daily price cannot be negative.'})
+            if self.daily_price <= Decimal("0.00"):
+                raise ValidationError({'daily_price': 'Daily price must be greater than zero.'})
 
-        # monthly price
         if self.is_monthly_available:
             if self.monthly_price is None:
                 raise ValidationError({'monthly_price': 'Monthly price is required if monthly rental is enabled.'})
