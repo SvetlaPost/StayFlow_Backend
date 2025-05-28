@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 from rest_framework.filters import OrderingFilter
 
+from apps.booking.models import Booking
 from apps.rent.models import Rent
 from apps.rent.permissions import IsOwnerOrAdminOrReadOnly
 from apps.rent.serializers import RentSerializer, BulkCreateRentSerializer
@@ -269,3 +270,5 @@ class RentByLocationAPIView(ListAPIView):
             queryset = queryset.filter(location__district__iexact=district)
 
         return queryset
+
+

@@ -21,6 +21,10 @@ class RentSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at', 'owner']
 
     def validate(self, attrs):
+        user = self.context["request"].user
+        if not user.is_host:
+            raise serializers.ValidationError("Only hosts are allowed to create rental listings.")
+
         self._validate_price_fields(attrs)
         return attrs
 

@@ -1,25 +1,11 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User
-
-from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from django.urls import path
+from django.urls import path, reverse
 from django.http import HttpResponse
 from django.template.response import TemplateResponse
-from django.db.models import Avg
-
-from .models import User
-from apps.rent.models import Rent
-from apps.booking.models import Booking
-
-
-from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from django.urls import path
-from django.http import HttpResponse
-from django.template.response import TemplateResponse
-from django.db.models import Avg
+from django.db.models import Avg, Count, Sum, Q
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 from .models import User
 from apps.rent.models import Rent
@@ -27,8 +13,9 @@ from apps.booking.models import Booking
 
 
 class UserAdmin(BaseUserAdmin):
-    list_display = ('email', 'full_name', 'role', 'is_host', 'is_staff', 'is_active')
+    list_display = ('id', 'email', 'full_name', 'role', 'is_host', 'is_staff', 'is_active', 'booking_stats')
     list_filter = ('role',)
+    ordering = ('id',)
 
     fieldsets = (
         ('Login Credentials', {'fields': ('email', 'password')}),
@@ -45,15 +32,37 @@ class UserAdmin(BaseUserAdmin):
     )
 
     search_fields = ('email', 'full_name')
-    ordering = ('email',)
 
-    # 👇 ДОБАВЛЕНО: URL и представление для статистики
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
             path('host-stats/', self.admin_site.admin_view(self.host_stats_view), name="host-stats"),
         ]
         return custom_urls + urls
+
+    def booking_stats(self, obj):
+        if not obj.is_host:
+            return "-"
+
+        total = Booking.objects.filter(rent__owner=obj).count()
+        confirmed = Booking.objects.filter(rent__owner=obj, status='confirmed').count()
+        commission = Booking.objects.filter(rent__owner=obj).aggregate(
+            total_commission=Sum("commission_amount")
+        )['total_commission'] or 0
+
+        url = (
+            reverse('admin:booking_booking_changelist')
+            + f'?rent__owner__id__exact={obj.id}'
+        )
+
+        return mark_safe(
+            f'<a href="{url}" title="View bookings for this host">'
+            f'{total} total<br>{confirmed} confirmed<br>💰 €{commission:.2f}'
+            '</a>'
+        )
+
+    booking_stats.short_description = "Booking Stats"
+    booking_stats.admin_order_field = 'id'
 
     def host_stats_view(self, request):
         if not request.user.is_staff:
@@ -80,6 +89,22 @@ class UserAdmin(BaseUserAdmin):
             title="Host Statistics"
         )
         return TemplateResponse(request, "admin/host_stats.html", context)
+
+    def renter_stats(self, obj):
+        if obj.is_host:
+            return "-"
+
+        total = Booking.objects.filter(renter=obj).count()
+        confirmed = Booking.objects.filter(renter=obj, status='confirmed').count()
+        cancelled = Booking.objects.filter(renter=obj, status='cancelled').count()
+
+        return mark_safe(
+            f"<b>{total}</b> total<br>"
+            f"<span style='color:green;'>{confirmed}</span> confirmed<br>"
+            f"<span style='color:red;'>{cancelled}</span> cancelled"
+        )
+
+    renter_stats.short_description = "Renter Stats"
 
 
 admin.site.register(User, UserAdmin)

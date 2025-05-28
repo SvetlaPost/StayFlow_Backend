@@ -95,4 +95,9 @@ class Rent(models.Model):
         self.save()
 
     def __str__(self):
-        return f"{self.title} — {self.location}"
+        try:
+            return f"{self.title} — {self.location}"
+        except Rent.location.RelatedObjectDoesNotExist:
+            return f"{self.title} — No location"
+
+

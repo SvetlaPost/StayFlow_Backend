@@ -1,5 +1,11 @@
 from django.db import models
-from django.db.models import Avg
+from django.db.models import (
+    Avg,
+    Sum,
+    F,
+    ExpressionWrapper,
+    DurationField, DecimalField,
+)
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_yasg import openapi
 from rest_framework.exceptions import PermissionDenied
@@ -8,7 +14,12 @@ from rest_framework.generics import RetrieveAPIView, UpdateAPIView, ListAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import AllowAny, IsAuthenticated, BasePermission, IsAdminUser
+from rest_framework.permissions import (
+    AllowAny,
+    IsAuthenticated,
+    BasePermission,
+    IsAdminUser,
+)
 from drf_yasg.utils import swagger_auto_schema
 
 from .serializers import (
@@ -204,7 +215,7 @@ class MyHostStatsView(APIView):
         user = request.user
 
         if not user.is_host:
-            raise PermissionDenied("Only hosts can access this endpoint.")
+            return Response({"detail": "Only hosts can access this statistics."}, status=status.HTTP_403_FORBIDDEN)
 
         rents = Rent.objects.filter(owner=user)
         bookings = Booking.objects.filter(rent__in=rents)
@@ -221,3 +232,44 @@ class MyHostStatsView(APIView):
 
         return Response(stats)
 
+
+class MyRenterStatsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        if user.is_host:
+            return Response({"detail": "Only renters can access this stats view."}, status=403)
+
+        bookings = Booking.objects.filter(renter=user, status="confirmed").select_related("rent")
+
+        total_spent = 0
+        total_nights = 0
+        booking_list = []
+
+        for b in bookings:
+            nights = (b.end_date - b.start_date).days or 1
+            price = b.rent.daily_price if b.rent else 0
+            total = nights * price
+            total_nights += nights
+            total_spent += total
+
+            booking_list.append({
+                "id": b.id,
+                "rent_title": b.rent.title if b.rent else "N/A",
+                "status": b.status,
+                "start_date": b.start_date,
+                "end_date": b.end_date,
+                "nights": nights,
+                "price_per_night": price,
+                "total_price": round(total, 2),
+            })
+
+        return Response({
+            "renter": user.email,
+            "total_bookings": bookings.count(),
+            "total_nights": total_nights,
+            "total_spent": round(total_spent, 2),
+            "bookings": booking_list
+        })
