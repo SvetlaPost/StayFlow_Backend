@@ -208,6 +208,8 @@ class BookingWithCommissionAPIView(APIView):
         return round(total_days * float(daily_price) * 0.1, 2)
 
 
+from django.db.models import F, ExpressionWrapper, DecimalField
+
 class MyHostStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -215,22 +217,45 @@ class MyHostStatsView(APIView):
         user = request.user
 
         if not user.is_host:
-            return Response({"detail": "Only hosts can access this statistics."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"detail": "Only hosts can access this statistics."}, status=403)
 
         rents = Rent.objects.filter(owner=user)
-        bookings = Booking.objects.filter(rent__in=rents)
+        bookings = Booking.objects.filter(rent__in=rents, status='confirmed').select_related("rent", "renter")
 
-        stats = {
-            "host_id": user.id,
-            "email": user.email,
-            "full_name": user.full_name,
-            "total_rents": rents.count(),
-            "total_bookings": bookings.count(),
-            "confirmed_bookings": bookings.filter(status="confirmed").count(),
-            "avg_daily_price": round(rents.aggregate(avg=Avg("daily_price"))["avg"] or 0, 2)
-        }
+        total_rents = rents.count()
+        total_bookings = bookings.count()
+        total_earnings = 0
+        total_nights = 0
 
-        return Response(stats)
+        booking_list = []
+
+        for b in bookings:
+            nights = (b.end_date - b.start_date).days or 1
+            price = b.rent.daily_price if b.rent else 0
+            total = nights * price
+            total_nights += nights
+            total_earnings += total
+
+            booking_list.append({
+                "id": b.id,
+                "rent_title": b.rent.title if b.rent else "N/A",
+                "renter": b.renter.email if b.renter else "N/A",
+                "start_date": b.start_date,
+                "end_date": b.end_date,
+                "nights": nights,
+                "price_per_night": price,
+                "total_price": round(total, 2),
+                "status": b.status
+            })
+
+        return Response({
+            "host": user.email,
+            "total_rents": total_rents,
+            "total_bookings": total_bookings,
+            "total_nights": total_nights,
+            "total_earnings": round(total_earnings, 2),
+            "bookings": booking_list
+        })
 
 
 class MyRenterStatsView(APIView):
@@ -273,3 +298,39 @@ class MyRenterStatsView(APIView):
             "total_spent": round(total_spent, 2),
             "bookings": booking_list
         })
+
+class AdminGroupedBookingsView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        data = []
+
+        hosts = User.objects.filter(is_host=True)
+
+        for host in hosts:
+            rents = Rent.objects.filter(owner=host)
+            bookings = Booking.objects.filter(rent__in=rents)
+
+            booking_list = []
+            for b in bookings:
+                booking_list.append({
+                    "booking_id": b.id,
+                    "rent_id": b.rent.id if b.rent else None,
+                    "rent_title": b.rent.title if b.rent else "N/A",
+                    "renter_email": b.renter.email if b.renter else "N/A",
+                    "status": b.status,
+                    "start_date": b.start_date,
+                    "end_date": b.end_date,
+                    "commission": float(b.commission_amount or 0)
+                })
+
+            data.append({
+                "host_id": host.id,
+                "host_email": host.email,
+                "total_rents": rents.count(),
+                "total_bookings": bookings.count(),
+                "total_earnings": float(bookings.aggregate(total=Sum("commission_amount"))["total"] or 0),
+                "bookings": booking_list
+            })
+
+        return Response(data)

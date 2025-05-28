@@ -7,6 +7,7 @@ from rest_framework_simplejwt.views import (
 
 )
 
+from apps.users.views import AdminGroupedBookingsView
 from apps.users.views import (
     RegisterAPIView,
     BulkRegisterHostsAPIView,
@@ -29,7 +30,7 @@ urlpatterns = [
     path('me/', UserMeView.as_view(), name='user-me'),
     path("host/my-stats/", MyHostStatsView.as_view(), name="my-host-stats"),
     path('renter/my-stats/', MyRenterStatsView.as_view(), name='my-renter-stats'),
-
+    path("api/admin/grouped-bookings/", AdminGroupedBookingsView.as_view(), name="admin-grouped-bookings"),
     path('profile/', UserProfileAPIView.as_view(), name='user-profile'),
     path('profile/update/', UserProfileUpdateAPIView.as_view(), name='user-profile-update'),
     path('hosts/popular/', PopularHostsAPIView.as_view(), name='popular-hosts'),

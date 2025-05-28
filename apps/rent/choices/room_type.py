@@ -12,9 +12,6 @@ class RoomType(str, Enum):
     LOFT = "Loft / Attic"
     STUDIO = "Studio"
 
-#   @classmethod
-#   def choices(cls):
-#       return [(member.name, member.value) for member in cls]
 
     @classmethod
     def faker_choices(cls):

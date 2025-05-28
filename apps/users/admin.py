@@ -6,6 +6,9 @@ from django.template.response import TemplateResponse
 from django.db.models import Avg, Count, Sum, Q
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from rest_framework.permissions import IsAdminUser
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .models import User
 from apps.rent.models import Rent
@@ -105,6 +108,5 @@ class UserAdmin(BaseUserAdmin):
         )
 
     renter_stats.short_description = "Renter Stats"
-
 
 admin.site.register(User, UserAdmin)

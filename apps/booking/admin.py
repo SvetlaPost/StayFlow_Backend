@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.utils.html import format_html
+
 from .models import Booking, BookingLog
 
 
@@ -33,3 +35,27 @@ class BookingLogAdmin(admin.ModelAdmin):
     list_display = ['booking', 'user', 'action', 'timestamp']
     list_filter = ['action', 'timestamp']
     search_fields = ['booking__id', 'user__email', 'description']
+
+@admin.display(description='Rent')
+def rent(self, obj):
+    if obj.rent:
+        url = f"/admin/rent/rent/{obj.rent.id}/change/"
+        return format_html(f'<a href="{url}">{obj.rent.title}</a>')
+    return "-"
+
+@admin.display(description='Nights')
+def nights(self, obj):
+    if obj.start_date and obj.end_date:
+        return (obj.end_date - obj.start_date).days
+    return "-"
+
+@admin.display(description='Status')
+def colored_status(self, obj):
+    color = {
+        "confirmed": "green",
+        "cancelled": "red",
+        "pending": "orange"
+    }.get(obj.status, "gray")
+    return format_html(f'<b style="color:{color};">{obj.status}</b>')
+
+
