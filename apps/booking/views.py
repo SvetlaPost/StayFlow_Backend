@@ -271,3 +271,5 @@ class AdminHostStatsView(APIView):
 
         return Response(data)
 
+
+
