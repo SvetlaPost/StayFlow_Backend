@@ -8,7 +8,7 @@ from apps.rent.views import (
 )
 
 router = DefaultRouter()
-router.register(r'rents', RentViewSet, basename='rent')
+router.register(r'', RentViewSet, basename='rent')
 
 urlpatterns = [
     path('rents/my/', MyRentsAPIView.as_view(), name='my-rents'),

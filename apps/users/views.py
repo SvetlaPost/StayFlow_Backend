@@ -54,6 +54,24 @@ logger.addHandler(handler)
 logger.setLevel(logging.INFO)
 
 
+class LogoutAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        refresh_token = request.data.get("refresh")
+
+        if not refresh_token:
+            return Response({"detail": "Refresh token is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            logger.info(f"User {request.user.email} logged out and token blacklisted.")
+            return Response({"detail": "Logout successful."}, status=status.HTTP_205_RESET_CONTENT)
+        except TokenError as e:
+            logger.warning(f"Logout failed: {str(e)}")
+            return Response({"detail": "Invalid or expired token."}, status=status.HTTP_400_BAD_REQUEST)
+
 class RegisterAPIView(APIView):
     permission_classes = [AllowAny]
 

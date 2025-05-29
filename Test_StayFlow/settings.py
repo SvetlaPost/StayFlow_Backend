@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'apps.location',
     'apps.booking',
     'apps.payments',
+    'apps.reviews',
     'rest_framework',
     'drf_yasg',
     'rest_framework_simplejwt.token_blacklist',

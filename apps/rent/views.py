@@ -1,28 +1,25 @@
-from django.shortcuts import get_object_or_404
-from rest_framework.filters import OrderingFilter
-from rest_framework.generics import ListAPIView
-from rest_framework.pagination import CursorPagination, PageNumberPagination
-from rest_framework.response import Response
-from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.views import APIView
-from rest_framework.filters import OrderingFilter
-
-from apps.booking.models import Booking
-from apps.rent.models import Rent
-from apps.rent.permissions import IsOwnerOrAdminOrReadOnly
-from apps.rent.serializers import RentSerializer, BulkCreateRentSerializer
-from apps.rent.filters import RentFilter
-from django_filters.rest_framework import DjangoFilterBackend
-from apps.rent.serializers import RentCreateSerializer
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
-
+from django.db.models import Avg, Count
+from rest_framework import viewsets, permissions, status,generics
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework import status, permissions, viewsets, generics
+from rest_framework.pagination import CursorPagination, PageNumberPagination
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import OrderingFilter
+from rest_framework.generics import ListAPIView
+
+
+from apps.rent.models import Rent
+from apps.rent.serializers import RentSerializer, RentCreateSerializer
+from apps.rent.filters import RentFilter
 from apps.rent.permissions import IsOwnerOrAdminOrReadOnly
-from apps.users.models import User
+
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from apps.rent.serializers import BulkCreateRentSerializer
+
 
 
 class RentViewSet(viewsets.ModelViewSet):
@@ -40,24 +37,14 @@ class RentViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         instance.delete()
 
-    @action(
-        detail=True,
-        methods=["post"],
-        url_path="increment-view",
-        permission_classes=[permissions.AllowAny],
-    )
+    @action(detail=True, methods=["post"], url_path="increment-view", permission_classes=[permissions.AllowAny])
     def increment_view(self, request, pk=None):
         rent = self.get_object()
         rent.view_count += 1
         rent.save()
         return Response({"message": "View count incremented."}, status=200)
 
-    @action(
-        detail=True,
-        methods=["post"],
-        url_path="restore",
-        permission_classes=[permissions.IsAuthenticated]
-    )
+    @action(detail=True, methods=["post"], url_path="restore", permission_classes=[permissions.IsAuthenticated])
     @swagger_auto_schema(
         operation_summary="Restore a soft-deleted listing",
         responses={
@@ -70,34 +57,39 @@ class RentViewSet(viewsets.ModelViewSet):
         rent = self.get_object()
         if rent.owner != request.user and not request.user.is_staff:
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
-
         if not rent.is_deleted:
             return Response({"detail": "This listing is already active."}, status=status.HTTP_400_BAD_REQUEST)
-
         rent.is_deleted = False
         rent.save()
         return Response({"detail": "Listing successfully restored."}, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=["get"], url_path="popular")
     @swagger_auto_schema(
-        operation_summary="Get popular rental listings by views",
+        operation_summary="Get popular rental listings by views and rating",
         manual_parameters=[
-            openapi.Parameter('limit', openapi.IN_QUERY, type=openapi.TYPE_INTEGER,
-                              description="Limit number of results")
+            openapi.Parameter(
+                'limit',
+                openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                description="Limit number of results (default: 10)"
+            )
         ]
     )
     def popular(self, request):
         limit = int(request.query_params.get("limit", 10))
-        queryset = self.get_queryset().order_by("-view_count")[:limit]
+        queryset = self.get_queryset().filter(
+            is_active=True
+        ).annotate(
+            avg_rating=Avg("ratings__stars"),
+            calc_ratings_count=Count("ratings")
+        ).order_by(
+            "-avg_rating", "-view_count"
+        )[:limit]
+
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @action(
-        detail=False,
-        methods=["get"],
-        url_path="available-on-weekend",
-        permission_classes=[permissions.AllowAny],
-    )
+    @action(detail=False, methods=["get"], url_path="available-on-weekend", permission_classes=[permissions.AllowAny])
     @swagger_auto_schema(
         operation_summary="Get rentals available for weekends",
         operation_description="Returns rentals that are marked as available for daily rental — ideal for weekend stays.",
@@ -112,9 +104,9 @@ class RentViewSet(viewsets.ModelViewSet):
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
-
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
 
 class RentListAPIView(generics.ListAPIView):
     queryset = Rent.objects.filter(is_active=True, is_deleted=False)

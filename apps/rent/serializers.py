@@ -10,17 +10,18 @@ from apps.users.serializers import UserProfileSerializer
 class RentSerializer(serializers.ModelSerializer):
     owner = UserProfileSerializer(read_only=True)
     location = LocationSerializer(read_only=True)
+    avg_rating = serializers.SerializerMethodField()
+    ratings_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Rent
-        fields = [
-            'id', 'owner', 'title', 'description', 'location',
-            'property_type', 'rooms', 'is_active',
-            'is_daily_available', 'daily_price',
-            'is_monthly_available', 'monthly_price',
-            'created_at', 'updated_at'
-        ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'owner']
+        fields = "__all__"
+
+    def get_avg_rating(self, obj):
+        return getattr(obj, 'avg_rating', obj.average_rating)
+
+    def get_ratings_count(self, obj):
+        return getattr(obj, "ratings_count", obj.ratings_count)
 
     def validate(self, attrs):
         user = self.context["request"].user
