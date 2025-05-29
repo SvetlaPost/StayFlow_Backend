@@ -60,8 +60,8 @@ class Rent(models.Model):
     daily_price = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        null=False,
-        blank=False,
+        null=True,
+        blank=True,
         help_text="Daily rental price in EUR"
 
     )
@@ -69,7 +69,7 @@ class Rent(models.Model):
         default=False,
         help_text="Price per month (if monthly rental is enabled)."
     )
-    monthly_price = models.DecimalField(max_digits=10, decimal_places=2, null=False, blank=False)
+    monthly_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

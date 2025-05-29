@@ -204,23 +204,46 @@ class BookingViewSet(viewsets.ModelViewSet):
             {"detail": "Booking confirmed and payment recorded. Other pending bookings have been declined."},
             status=status.HTTP_200_OK)
 
+    from datetime import date
+    from rest_framework import status
+    from rest_framework.response import Response
+    from rest_framework.decorators import action
+    from decimal import Decimal
+
     @action(detail=True, methods=["post"], url_path="cancel")
     def cancel_booking(self, request, pk=None):
         booking = self.get_object()
-
-        if request.user != booking.rent.owner and not request.user.is_staff:
-            return Response({"detail": "Only the host or admin can cancel this booking."},
-                            status=status.HTTP_403_FORBIDDEN)
+        user = request.user
 
         if booking.status == "cancelled":
             return Response({"detail": "Booking is already cancelled."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if user != booking.renter and user != booking.rent.owner and not user.is_staff:
+            return Response({"detail": "You do not have permission to cancel this booking."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        if user == booking.renter and booking.status == "confirmed":
+            days_before_start = (booking.start_date - date.today()).days
+
+            if days_before_start < 3:
+                return Response(
+                    {"detail": "Cancellations by renters are not allowed within 3 days of the start date."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            payment = getattr(booking, "payment", None)
+            if payment:
+                payment.host_fee = Decimal("0.00")
+                payment.is_paid = False
+                payment.is_refunded = False
+                payment.save()
 
         booking.status = "cancelled"
         booking.save()
 
         send_booking_notification(booking, to_host=False, cancelled=True)
 
-        return Response({"detail": "Booking cancelled."}, status=status.HTTP_200_OK)
+        return Response({"detail": "Booking cancelled successfully."}, status=status.HTTP_200_OK)
 
 
 class MyBookingsView(ListAPIView):
