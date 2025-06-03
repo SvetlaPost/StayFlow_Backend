@@ -11,10 +11,10 @@ router = DefaultRouter()
 router.register(r'', RentViewSet, basename='rent')
 
 urlpatterns = [
-    path('rents/my/', MyRentsAPIView.as_view(), name='my-rents'),
-    path('rents/by-user/<int:user_id>/', RentByUserAPIView.as_view(), name='rents-by-user'),
-    path('rents/by-location/', RentByLocationAPIView.as_view(), name='rents-by-location'),
-    path('rents/create/', RentCreateAPIView.as_view(), name='rent-create'),
+    path('my/', MyRentsAPIView.as_view(), name='my-rents'),
+    path('by-user/<int:user_id>/', RentByUserAPIView.as_view(), name='rents-by-user'),
+    path('by-location/', RentByLocationAPIView.as_view(), name='rents-by-location'),
+    path('create/', RentCreateAPIView.as_view(), name='rent-create'),
     path('', include(router.urls)),
 
 ]

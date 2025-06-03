@@ -1,6 +1,6 @@
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
-from rest_framework import generics
+from rest_framework import generics, permissions
 from django.contrib.auth import get_user_model
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -9,7 +9,7 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework.views import APIView
 
 from apps.location.models import Location
-from apps.location.serializers import LocationWithRentsSerializer
+from apps.location.serializers import LocationWithRentsSerializer, LocationSerializer
 
 User = get_user_model()
 
@@ -36,6 +36,12 @@ class RegisterSerializer(ModelSerializer):
 class RegisterAPIView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
+
+
+class LocationCreateAPIView(generics.CreateAPIView):
+    queryset = Location.objects.all()
+    serializer_class = LocationSerializer
+    permission_classes = [permissions.IsAdminUser]
 
 
 class LocationsWithRentsAPIView(APIView):

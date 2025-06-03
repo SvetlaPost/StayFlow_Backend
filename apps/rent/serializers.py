@@ -12,10 +12,19 @@ class RentSerializer(serializers.ModelSerializer):
     location = LocationSerializer(read_only=True)
     avg_rating = serializers.SerializerMethodField()
     ratings_count = serializers.SerializerMethodField()
+    renter_ids = serializers.SerializerMethodField()
 
     class Meta:
         model = Rent
         fields = "__all__"
+
+    def get_renter_ids(self, obj):
+        renters = obj.bookings.values_list('renter_id', flat=True).distinct()
+        return list(renters)
+
+    def get_request_user_id(self, obj):
+        user = self.context.get("request").user
+        return user.id if user and user.is_authenticated else None
 
     def get_avg_rating(self, obj):
         return getattr(obj, 'avg_rating', obj.average_rating)
@@ -59,6 +68,7 @@ class RentCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rent
         fields = [
+            'id',
             'title', 'description', 'location', 'property_type', 'rooms',
             'is_active',
             'is_daily_available', 'daily_price',

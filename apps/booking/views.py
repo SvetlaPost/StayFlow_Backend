@@ -111,14 +111,6 @@ class BookingViewSet(viewsets.ModelViewSet):
 
         self.created_message = message
 
-    def create(self, request, *args, **kwargs):
-        response = super().create(request, *args, **kwargs)
-        if hasattr(self, "created_booking"):
-            response.data['notification_host'] = self.host_msg
-            response.data['notification_renter'] = self.renter_msg
-            response.data['info'] = "Other users will be blocked from booking the same dates."
-        return response
-
     def calculate_commission(self, rent, start_date, end_date):
         total_days = (end_date - start_date).days or 1
         daily_price = rent.daily_price or Decimal("0")
@@ -127,6 +119,7 @@ class BookingViewSet(viewsets.ModelViewSet):
     @swagger_auto_schema(
         operation_summary="Create a booking",
         operation_description="Creates a booking and automatically calculates a 10% commission fee.",
+        request_body=BookingSerializer,
         responses={201: BookingSerializer()},
     )
     def create(self, request, *args, **kwargs):
@@ -136,34 +129,6 @@ class BookingViewSet(viewsets.ModelViewSet):
             response.data['notification_renter'] = self.renter_msg
             response.data['info'] = "Other users will be blocked from booking the same dates."
         return response
-
-    def perform_destroy(self, instance):
-        user = self.request.user
-        self.log_booking_action(instance, user, "cancel", "Booking canceled.")
-
-        if user == instance.renter:
-            days_before = (instance.start_date - date.today()).days
-
-            if instance.status == 'pending':
-                instance.delete()
-                print(
-                    f"[PENDING CANCELLED] Booking #{instance.id} by {user.email} for '{instance.rent.title}' "
-                    f"({instance.start_date} → {instance.end_date}) has been deleted."
-                )
-                return
-
-            if days_before >= 3:
-                commission = self.calculate_commission(instance.rent, instance.start_date, instance.end_date)
-                instance.delete()
-                raise PermissionDenied(f"Booking canceled. 10% commission: {commission}€ will be withheld.")
-            else:
-                raise PermissionDenied("You can cancel only at least 3 days in advance.")
-
-        if user.is_staff:
-            instance.delete()
-        else:
-            raise PermissionDenied("Only the renter, owner or admin can cancel this booking.")
-
 
     @action(detail=True, methods=["post"], url_path="confirm")
     def confirm_booking(self, request, pk=None):
@@ -204,11 +169,33 @@ class BookingViewSet(viewsets.ModelViewSet):
             {"detail": "Booking confirmed and payment recorded. Other pending bookings have been declined."},
             status=status.HTTP_200_OK)
 
-    from datetime import date
-    from rest_framework import status
-    from rest_framework.response import Response
-    from rest_framework.decorators import action
-    from decimal import Decimal
+    def perform_destroy(self, instance):
+        user = self.request.user
+        self.log_booking_action(instance, user, "cancel", "Booking canceled.")
+
+        if user == instance.renter:
+            days_before = (instance.start_date - date.today()).days
+
+            if instance.status == 'pending':
+                instance.delete()
+                print(
+                    f"[PENDING CANCELLED] Booking #{instance.id} by {user.email} for '{instance.rent.title}' "
+                    f"({instance.start_date} → {instance.end_date}) has been deleted."
+                )
+                return
+
+            if days_before >= 3:
+                commission = self.calculate_commission(instance.rent, instance.start_date, instance.end_date)
+                instance.delete()
+                raise PermissionDenied(f"Booking canceled. 10% commission: {commission}€ will be withheld.")
+            else:
+                raise PermissionDenied("You can cancel only at least 3 days in advance.")
+
+        if user.is_staff:
+            instance.delete()
+        else:
+            raise PermissionDenied("Only the renter, owner or admin can cancel this booking.")
+
 
     @action(detail=True, methods=["post"], url_path="cancel")
     def cancel_booking(self, request, pk=None):

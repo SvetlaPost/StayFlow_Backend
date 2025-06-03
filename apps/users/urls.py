@@ -6,6 +6,7 @@ from rest_framework_simplejwt.views import (
     TokenBlacklistView,
 )
 
+from apps.rent.views import RentCreateAPIView
 from apps.users.views import (
     RegisterAPIView,
     BulkRegisterHostsAPIView,
@@ -16,7 +17,8 @@ from apps.users.views import (
     UserListAPIView,
     MyHostStatsView,
     MyRenterStatsView,
-    AdminGroupedBookingsView, LogoutAPIView,
+    AdminGroupedBookingsView,
+    LogoutAPIView,
 )
 
 urlpatterns = [
@@ -36,6 +38,7 @@ urlpatterns = [
     path('profile/', UserProfileAPIView.as_view(), name='user-profile'),
     path('profile/update/', UserProfileUpdateAPIView.as_view(), name='user-profile-update'),
     path('hosts/popular/', PopularHostsAPIView.as_view(), name='popular-hosts'),
+
 ]
 
 

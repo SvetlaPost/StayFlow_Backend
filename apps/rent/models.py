@@ -2,18 +2,25 @@ from decimal import Decimal
 
 from rest_framework.exceptions import ValidationError
 
+from apps.core.models import SoftDeleteModel
 from apps.rent.choices.room_type import RoomType
 from apps.users.models import User
 from django.db import models
 
 from apps.location.models import Location
+from django.utils import timezone
 
 
-class RentManager(models.Manager):
+class RentQuerySet(models.QuerySet):
+    def delete(self):
+        return super().update(is_deleted=True, deleted_at=timezone.now())
+
+class RentManager(models.Manager.from_queryset(RentQuerySet)):
     def get_queryset(self):
         return super().get_queryset().filter(is_deleted=False)
 
-class Rent(models.Model):
+
+class Rent(SoftDeleteModel):
     owner = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -51,7 +58,7 @@ class Rent(models.Model):
 
     view_count = models.PositiveIntegerField(default=0)
 
-    is_deleted = models.BooleanField(default=False)
+#    is_deleted = models.BooleanField(default=False)
 
     is_daily_available = models.BooleanField(
         default=False,
@@ -92,10 +99,6 @@ class Rent(models.Model):
                 raise ValidationError({'monthly_price': 'Monthly price is required if monthly rental is enabled.'})
             if self.monthly_price < 0:
                 raise ValidationError({'monthly_price': 'Monthly price cannot be negative.'})
-
-    def delete(self, using=None, keep_parents=False):
-        self.is_deleted = True
-        self.save()
 
     def __str__(self):
         try:

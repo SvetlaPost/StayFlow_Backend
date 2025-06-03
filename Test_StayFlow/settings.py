@@ -45,7 +45,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'apps.users',
-    'apps.rent',
+    'apps.core',
+    'apps.rent.apps.RentConfig',
     'apps.location',
     'apps.booking',
     'apps.payments',
@@ -121,9 +122,9 @@ SWAGGER_SETTINGS = {
         }
     }
 }
-
 LOGGING = {
     "version": 1,
+    "disable_existing_loggers": False,
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
@@ -131,11 +132,13 @@ LOGGING = {
     },
     "loggers": {
         "django.db.backends": {
-            "level": "DEBUG",
+            "level": "WARNING",
             "handlers": ["console"],
+            "propagate": False,
         },
     },
 }
+
 
 
 WSGI_APPLICATION = 'Test_StayFlow.wsgi.application'

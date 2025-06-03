@@ -4,7 +4,7 @@ from django.utils.html import format_html
 
 @admin.register(Location)
 class LocationAdmin(admin.ModelAdmin):
-    list_display = ("city", "district", "state", "country", "latitude", "longitude", "map_link")
+    list_display = ('id', "city", "district", "state", "country", "latitude", "longitude", "map_link")
     search_fields = ("city", "district", "state")
 
     @admin.display(description="Map")

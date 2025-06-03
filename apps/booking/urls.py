@@ -7,6 +7,6 @@ router.register(r'bookings', BookingViewSet, basename='booking')
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('bookings/my/', MyBookingsView.as_view(), name='my-bookings'),
+    path('my/', MyBookingsView.as_view(), name='my-bookings'),
     path("admin/host-stats/", AdminHostStatsView.as_view(), name="admin-host-stats"),
 ]
