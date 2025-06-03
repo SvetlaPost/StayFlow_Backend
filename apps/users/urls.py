@@ -26,7 +26,6 @@ urlpatterns = [
     path('login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('token/verify/', TokenVerifyView.as_view(), name='token_verify'),
-    path('logout/', LogoutAPIView.as_view(), name='logout'),
     path('logout/', TokenBlacklistView.as_view(), name='token_blacklist'),
 
     path('bulk-register-hosts/', BulkRegisterHostsAPIView.as_view(), name='bulk_register_hosts'),

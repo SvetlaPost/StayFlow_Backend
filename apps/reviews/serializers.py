@@ -11,13 +11,15 @@ class RatingSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         booking = attrs['booking']
         user = self.context['request'].user
+        today = timezone.now().date()
 
         if booking.renter != user:
             raise serializers.ValidationError("You can only rate your own bookings.")
-        if booking.end_date > timezone.now().date():
-            raise serializers.ValidationError("You can rate only after the rental period ends.")
+        if today < booking.start_date:
+            raise serializers.ValidationError("You can only leave a review starting from the first day of the rental.")
         if booking.status != "confirmed":
             raise serializers.ValidationError("Only confirmed bookings can be rated.")
+
         return attrs
 
     def create(self, validated_data):
@@ -25,3 +27,4 @@ class RatingSerializer(serializers.ModelSerializer):
         validated_data['rent'] = booking.rent
         validated_data['renter'] = self.context['request'].user
         return super().create(validated_data)
+

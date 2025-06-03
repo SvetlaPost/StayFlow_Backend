@@ -122,22 +122,51 @@ SWAGGER_SETTINGS = {
         }
     }
 }
+#LOGGING = {
+#    "version": 1,
+#    "disable_existing_loggers": False,
+#    "handlers": {
+#        "console": {
+#            "class": "logging.StreamHandler",
+#        },
+#    },
+#    "loggers": {
+#        "django.db.backends": {
+#            "level": "WARNING",
+#            "handlers": ["console"],
+#            "propagate": False,
+#        },
+#    },
+#}
+
+import os
+
 LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{asctime}] {levelname} [{name}] {message}',
+            'style': '{',
         },
     },
-    "loggers": {
-        "django.db.backends": {
-            "level": "WARNING",
-            "handlers": ["console"],
-            "propagate": False,
+    'handlers': {
+        'rental_file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'rental_events.log'),
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'rental': {
+            'handlers': ['rental_file'],
+            'level': 'INFO',
+            'propagate': False,
         },
     },
 }
+
 
 
 
