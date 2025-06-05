@@ -32,7 +32,11 @@ SECRET_KEY = 'django-insecure-tpz5mmo)44%))oq(2(03^x+0hi9t)2%nmom$rj*g(^(w7%#@4%
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    '127.0.0.1',
+    'localhost',
+    '0.0.0.0'
+]
 
 
 # Application definition
@@ -53,6 +57,7 @@ INSTALLED_APPS = [
     'apps.reviews',
     'rest_framework',
     'drf_yasg',
+    'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
 
 ]
@@ -189,8 +194,10 @@ DATABASES = {
         'NAME': os.getenv("DB_NAME"),
         'USER': os.getenv("DB_USER"),
         'PASSWORD': os.getenv("DB_PASSWORD"),
-        'HOST': os.getenv("DB_HOST"),
-        'PORT': os.getenv("DB_PORT"),
+        #'HOST': os.getenv("DB_HOST"),
+        'HOST': 'dbMySQL',
+        #'PORT': os.getenv("DB_PORT"),
+        'PORT': 3306,
     }
 }
 
