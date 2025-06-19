@@ -4,6 +4,9 @@
 
 Test StayFlow is a modern web-based housing rental platform built with Django and Django REST Framework. It enables hosts to publish rental listings and renters to book them either daily or monthly. The platform is focused on simplicity, efficiency, and transparency in the rental process.
 
+### Project Structure
+
+```bash
 stayflow/
 ├── manage.py
 ├── stayflow/                  # Project configuration (settings, urls, wsgi)
@@ -98,6 +101,7 @@ Visit the API docs at `http://127.0.0.1:8000/swagger/`
 
 Test StayFlow ist eine moderne, webbasierte Plattform für Wohnungsvermietung, entwickelt mit Django und dem Django REST Framework. Gastgeber können Inserate einstellen, während Mieter diese täglich oder monatlich buchen können. Die Plattform legt Wert auf Benutzerfreundlichkeit und Transparenz.
 
+```bash
 stayflow/
 ├── manage.py
 ├── stayflow/                  # Projekteinstellungen (settings, urls, wsgi)
